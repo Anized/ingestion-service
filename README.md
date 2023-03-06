@@ -8,7 +8,7 @@ The `ingestion-service` utilizes Akka Http to provide an asynchronous, streaming
 On accepting and validating an upload request (POST, multipart/form-data), the 
 byte stream and metadata are passed to the Upload route, which first calls the
 Storage service to stream the bytes to a file system file, before calling Vendor
-service (now that it knows the size of the upload), to verify the agency has upload
+service (now that it knows the size of the upload), to verify the vendor has upload
 quota available.  
 
 If not, the file is deleted from store and an appropriate error is
