@@ -1,0 +1,98 @@
+= Document Ingestion Service
+
+== API
+
+=== Upload new document
+Uploads the specified file and creates a new document, with default metadata
+
+The metadata is returned, including a content URL that can be used for further operations on this document
+[source,shell script]
+----
+POST http://localhost:9999/document/upload \
+  -F "filename=@client.hcl" -H "agency-id: urn:agency-id:test_agency"
+----
+*Response*
+[source,json]
+----
+{"contentType":"application/octet-stream","contentUrl":"http://127.0.0.1:9999/document/id/12",
+ "id":12,"name":"client.hcl","ownerId":"urn:agency-id:test_agency","size":102,"status":"Uploaded",
+ "timestamp":"2022-05-26T20:18:40.447","version":0}
+----
+=== List existing documents
+Returns a list of metadata for all documents currently stored (as Json array)
+[source,shell script]
+----
+GET http://localhost:9999/document/list
+----
+=== Describe document by Id
+Returns a JSON representation of the document's metadata
+[source,shell script]
+----
+GET http://localhost:9999/document/id/9/describe
+----
+*Response*
+[source,json]
+----
+{"contentType":"application/octet-stream","contentUrl":"http://127.0.0.1:9999/document/id/9",
+"id":9,"name":"client.hcl","ownerId":"urn:agency-id:test_agency","size":102,"status":"Uploaded",
+"timestamp":"2022-05-26T20:18:40.447","version":0}
+----
+=== Download document by Id
+Downloads the file contents of the document
+[source,shell script]
+----
+GET http://localhost:9999/document/id/9
+----
+E.g.,
+[source,shell script]
+----
+curl http://localhost:9999/document/id/9 --output doc9.data
+----
+=== Get info about a document by Id
+Returns a short textual description of the document, including approx. size in human-readable form
+[source,shell script]
+----
+GET http://localhost:9999/document/id/9/info
+----
+*Response*
+[source,shell script]
+----
+Document id=9 name=hl.pdf size=104.0 KiB
+----
+=== Update document by Id
+Uploads a new version of a document, replacing the one currently stored
+[source,shell script]
+----
+PUT http://localhost:9999/document/id/9 -F "filename=@updated.hcl"
+----
+*Response*
+[source,json]
+----
+{"contentType":"application/pdf","contentUrl":"http://127.0.0.1:9999/document/id/14","id":9,
+"name":"updated.hcl", "ownerId":"urn:agecy-id:test_agency","size":106503,"status":"Uploaded",
+"timestamp":"2022-05-27T13:55:12.302","version":4}
+----
+=== Update metadata by Id
+Updates the metadata associated with the document
+[source,shell script]
+----
+PUT http://localhost:9999/document/id/12/describe \
+ --data '{"contentType":"application/json","name":"client.json","ownerId":"urn:agecy-id:test_agency"}'
+----
+*Response*
+[source,json]
+----
+{"contentType":"application/octet-stream","contentUrl":"http://127.0.0.1:9999/document/id/12",
+"id":12,"name":"client.json","ownerId":"urn:agecy-id:test_agency","size":102,"status":"Uploaded",
+"timestamp":"2022-05-26T20:18:40.447","version":0}
+----
+=== Delete document (status => Deleted)
+Marks the document as deleted, so that it will no longer be accessible, without physically deleting anything
+[source,shell script]
+----
+DELETE http://localhost:9999/ingdocumentestor/id/13
+----
+*Response*
+----
+Deleted document with id=13
+----

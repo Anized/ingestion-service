@@ -1,0 +1,13 @@
+spring:
+  application:
+    name: ingestion-service
+  cloud:
+    consul:
+      enabled: false
+    bus:
+      enabled: false
+
+server:
+  port: -1
+api:
+  port: -1

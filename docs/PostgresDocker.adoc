@@ -1,0 +1,82 @@
+
+docker run -e POSTGRES_PASSWORD=password -p 5432:5432 --name pgserver -v "/opt/postgres/data:/var/lib/postgresql/data" postgres:latest
+
+Mapped the port 5432 of your container to port 5432 of your server
+Postgres is accessible from your localhost:5432
+
+To test: Run the postgres database (command above)
+
+docker ps
+
+CONTAINER ID   IMAGE             COMMAND                  CREATED          STATUS          PORTS                                       NAMES
+aa27dc339d3c   postgres:latest   "docker-entrypoint.s…"   20 seconds ago   Up 19 seconds   0.0.0.0:5432->5432/tcp, :::5432->5432/tcp   stoic_ritchie
+
+Go inside the container and create a database:
+
+[source,shell]
+----
+docker exec -it aa27dc339d3c bash
+root@aa27dc339d3c:/# psql -U postgres
+postgres-# CREATE DATABASE documentdb;
+postgres-# \c documentdb
+documentdb=# CREATE TABLE documents
+(
+    id           SERIAL    NOT NULL PRIMARY KEY,
+    name         TEXT      NOT NULL,
+    status       TEXT               DEFAULT 'ACTIVE',
+    owner_id     TEXT      NOT NULL,
+    content_type TEXT               DEFAULT '*/*',
+    size         INTEGER   NOT NULL DEFAULT 0,
+    version      INTEGER   NOT NULL DEFAULT 0,
+    timestamp    TIMESTAMP NOT NULL,
+    storage_type TEXT               DEFAULT 'FS',
+    content_uri  TEXT               DEFAULT '');
+
+select id, name, status, owner_id, content_type, size, version, timestamp from documents;
+
+postgres-# \q
+----
+Go to localhost (where you have some tool or the psql client).
+[source,shell]
+----
+psql -h localhost -p 5432 -U postgres
+(password is password)
+
+postgres=# \l
+
+                                 List of databases
+   Name    |  Owner   | Encoding |  Collate   |   Ctype    |   Access privileges
+-----------+----------+----------+------------+------------+-----------------------
+ postgres  | postgres | UTF8     | en_US.utf8 | en_US.utf8 |
+ template0 | postgres | UTF8     | en_US.utf8 | en_US.utf8 | =c/postgres          +
+           |          |          |            |            | postgres=CTc/postgres
+ template1 | postgres | UTF8     | en_US.utf8 | en_US.utf8 | =c/postgres          +
+           |          |          |            |            | postgres=CTc/postgres
+
+documentdb=# \d
+List of relations
+Schema |       Name       |   Type   |  Owner
+-------+------------------+----------+----------
+public | documents        | table    | postgres
+public | documents_id_seq | sequence | postgres
+(2 rows)
+
+documentdb=# \d documents
+Table "public.documents"
+Column       |            Type             | Collation | Nullable |                Default
+-------------+-----------------------------+-----------+----------+---------------------------------------
+id           | integer                     |           | not null | nextval('documents_id_seq'::regclass)
+name         | text                        |           | not null |
+status       | text                        |           |          | 'ACTIVE'::text
+owner_id     | text                        |           | not null |
+content_uri  | text                        |           | not null |
+size         | integer                     |           | not null | 0
+version      | integer                     |           | not null | 0
+timestamp    | timestamp without time zone |           | not null |
+storage_type | text                        |           |          | 'FS'::text
+content_uri  | text                        |           |          | ''::text
+Indexes:
+"documents_pkey" PRIMARY KEY, btree (id)
+----
+
+Accessing the database (which is running in docker on a server) from localhost

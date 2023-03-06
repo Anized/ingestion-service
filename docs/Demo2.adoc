@@ -1,0 +1,168 @@
+= Nomad Demo #2
+
+_Stateful Workloads, Database Discovery_
+
+== Parts List
+* Nomad
+* Consul
+* Fabio
+* Postgres
+* Ingestor service
+
+== Start Nomad
+Configure host volume for Postgres to use:
+[source,hcl]
+----
+client {
+  host_volume "postgresql" {
+    path      = "/opt/postgres/data"
+    read_only = false
+  }
+}
+----
+Set owner as nomad user, or allow access:
+[source,shell script]
+----
+$ sudo chmod +rwx /opt/postgres/data/
+----
+Start Nomad with client configuration:
+[source,shell script]
+----
+$ nomad agent -dev -config=client.hcl
+----
+
+== Deploy Postgres
+* Map standard port (5432) to host network
+* Mount the volume prepared above in usual PG location
+* Configure credentials (should use Vault)
+* Deploy via Nomad (one instance)
+[source,hcl]
+----
+job "postgres" {
+datacenters = ["dc1"]
+type = "service"
+
+  group "postgres" {
+    count = 1
+
+    volume "postgresql" {
+      type      = "host"
+      read_only = false
+      source    = "postgresql"
+    }
+
+    task "postgres" {
+      driver = "docker"
+
+      volume_mount {
+        volume      = "postgresql"
+        destination = "/var/lib/postgresql/data"
+        read_only   = false
+      }
+
+      config {
+        image = "postgres"
+        network_mode = "host"
+        port_map {
+          db = 5432
+        }
+      }
+      env {
+        POSTGRES_USER="postgres"
+        POSTGRES_PASSWORD="password"
+      }
+
+      logs {
+        max_files     = 5
+        max_file_size = 15
+      }
+
+      resources {
+        cpu = 1000
+        memory = 1024
+        network {
+          mbits = 10
+          port  "db"  {
+            static = 5432
+          }
+        }
+      }
+      service {
+        name = "postgres"
+        tags = ["postgres for ingestion-service"]
+        port = "db"
+
+        check {
+          name     = "alive"
+          type     = "tcp"
+          interval = "10s"
+          timeout  = "2s"
+        }
+      }
+    }
+  }
+}
+----
+
+== Document Ingestor
+* New service to store & retrieve documents
+* Uses basic DB table for metadata & document (BYTEA column)
+* Reactive API (non-blocking) all the way to DB server
+* Build as Docker image
+* Deploy via Nomad (one instance)
+* Map two ports (Consul access via SpringBoot) and API
+
+[source,hcl]
+----
+job "ingestor" {
+  datacenters = ["dc1"]
+
+  group "ingestion-service" {
+    count = 1
+
+    network {
+      mode = "host"
+    }
+
+    task "server" {
+      driver = "docker"
+
+      config {
+        image = "accela/ingestion-service:2022.01"
+        network_mode = "host"
+      }
+
+      env {
+        SERVER_PORT= "${NOMAD_PORT_http}"
+        API_PORT= "${NOMAD_PORT_api}"
+        SPRING_CLOUD_CONSUL_HOST = "localhost"
+        SPRING_CLOUD_SERVICE_REGISTRY_AUTO_REGISTRATION_ENABLED = "false"
+      }
+
+      resources {
+        network {
+          mbits = 10
+          port "http" {}
+          port "api" {}
+        }
+      }
+
+      service {
+        name = "ingestion-service"
+        port = "api"
+
+        tags = [
+          "urlprefix-/document"
+        ]
+
+        check {
+          type     = "http"
+          path     = "/health/check"
+          interval = "2s"
+          timeout  = "2s"
+        }
+      }
+    }
+  }
+}
+----

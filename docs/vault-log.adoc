@@ -1,0 +1,102 @@
+= Vault
+
+== Starting
+Run Vault on local machine in dev mode:
+
+    $ vault server -dev
+
+__WARNING! dev mode is enabled! In this mode, Vault runs entirely in-memory
+and starts unsealed with a single unseal key. The root token is already
+authenticated to the CLI, so you can immediately begin using Vault.
+__
+
+You may need to set the following environment variable:
+
+    $ export VAULT_ADDR='http://127.0.0.1:8200'
+
+The unseal key and root token are displayed below in case you want to
+seal/unseal the Vault or re-authenticate.
+
+    Unseal Key: 9R4Z+bGiHDhdLhvquBB1QXxET91SxDBTDqwAD+dYtT4=
+    Root Token: hvs.VCNZCBiLA9VV0i2HzvHHu0XU
+
+Development mode should NOT be used in production installations!
+
+    $ export VAULT_ADDR=http://127.0.0.1:8200
+    $ export VAULT_DEV_ROOT_TOKEN=hvs.VCNZCBiLA9VV0i2HzvHHu0XU
+    $ vault kv put secret/agency-service spring.datasource.username=joe
+    $ vault kv get secret/agency-service
+
+
+Got Vault/Spring Cloud working, pretty neat.
+E.g., define DB credentials in application.yaml
+
+    spring:
+      datasource:
+        url: "jdbc:postgresql://localhost:5432/agency"
+        driver-class-name: "org.postgresql.Driver"
+    (without username or password)
+
+Set the secret in vault:
+
+    $ vault kv put secret/agency-service spring.datasource.username=postgres
+
+Start the service and boom! we're in!
+
+Add implementation to service build:
+
+    implementation 'org.springframework.cloud:spring-cloud-starter-vault-config:3.1.1'
+
+Configure (e.g., application.yaml)
+
+    spring.cloud.vault:
+      enabled: true
+      host: localhost
+      port: 8200
+      scheme: http
+      uri: http://localhost:8200
+      connection-timeout: 5000
+      read-timeout: 15000
+      authentication: TOKEN
+      token: hvs.VCNZCBiLA9VV0i2HzvHHu0XU
+
+Better to add secrets via a file, e.g.,
+
+    $ cat data.json
+    { "key" : "secret"}
+
+    $ vault kv put secret/foo @data.json
+[source,shell script]
+----
+= Secret Path =
+secret/data/foo
+
+======= Metadata =======
+Key                Value
+---                -----
+created_time       2022-06-08T20:02:19.112229453Z
+custom_metadata    <nil>
+deletion_time      n/a
+destroyed          false
+version            1
+----
+    $ vault kv get secret/foo
+[source,shell script]
+----
+= Secret Path =
+secret/data/foo
+
+======= Metadata =======
+Key                Value
+---                -----
+created_time       2022-06-08T20:02:19.112229453Z
+custom_metadata    <nil>
+deletion_time      n/a
+destroyed          false
+version            1
+
+=== Data ===
+Key    Value
+---    -----
+key    secret
+----

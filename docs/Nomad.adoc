@@ -1,0 +1,109 @@
+= Document Ingestion Service & Friends
+
+== Running in Nomad
+
+=== Start Nomad
+
+Configure storage volumes, for:
+
+* PostgreQl DB
+* Ingestion service document storage
+* Grafana (saves dashboards)
+* Vault (if used)
+[source,hcl]
+
+Configure `client.hcl`:
+----
+client {
+  enabled = true
+  options {
+    docker.cleanup.image = false
+  }
+  host_volume "vault" {
+    path      = "/opt/vault/data"
+    read_only = false
+  }
+  host_volume "postgresql" {
+    path      = "/opt/postgres/data"
+    read_only = false
+  }
+  host_volume "grafana" {
+    path      = "/var/lib/grafana"
+    read_only = false
+  }
+  host_volume "ingestor" {
+    path      = "/opt/ingestor/data"
+    read_only = false
+  }
+}
+----
+Note:  `docker.cleanup.image = false` prevents Nomad from deleting the docker image from the repo if it fails to run
+it!  DAMHIKIJKOK?
+
+[source,shell script]
+----
+$ nomad agent -dev -config=client.hcl
+----
+=== Start supporting services
+
+1. Consul
+2. Fabio
+3. Postgres
+4. Prometheus
+5. Grafana
+
+With helper script, e.g., `runjob`:
+[source,shell script]
+----
+$ echo 'job=$(basename $1 .nomad)
+nomad job run $job.nomad
+' > runjob
+$ chmod +x starjob
+----
+With Nomad HCL task definitions
+[source,shell script]
+----
+$ ./runjob consul
+$ ./runjob fabio&
+$ ./runjob postgres&
+$ ./runjob prometheus&
+$ ./runjob grafana&
+----
+=== Build services & publish to Docker
+==== ingestion-service
+[source,shell script]
+----
+$ sbt docker:publishLocal
+----
+==== agency-service
+[source,shell script]
+----
+$ ./gradlew dockerBuildImage
+----
+==== document-manager
+[source,shell script]
+----
+$ ng build
+$ docker build -t accela/document-manager:2022.02 .
+----
+=== Start Services
+Copy service task definitions
+[source,shell script]
+----
+./runjob ingestor&
+./runjob agency&
+./runjob document-manager&
+----
+
+== Web Pages
+http://localhost:4646/ui/jobs[Nomad]
+
+http://localhost:8500/ui/dc1/services[Consul]
+
+http://localhost:9998/routes[Fabio]
+
+http://127.0.0.1:9090/[Prometheus]
+
+http://127.0.0.1:3000/dashboards[Grafana]
+
+http://localhost/[DMA: Document Manager front-end]

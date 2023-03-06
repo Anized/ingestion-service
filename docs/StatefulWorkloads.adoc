@@ -1,0 +1,15 @@
+
+
+client {
+  host_volume "postgresql" {
+    path      = "/opt/postgres/data"
+    read_only = false
+  }
+}
+
+set owner as nomad user, or allow access:
+sudo chmod +rwx /opt/postgres/data/
+
+$ nomad agent -dev -config=client.hcl
+
+
